@@ -1,10 +1,10 @@
 // Page behavior:
+//  - Marks slides as .is-shown as soon as they scroll a little way into view,
+//    which plays their .reveal transitions (CSS), starts their videos and clip
+//    wall, and counts up their [data-count] numbers. All of that resets once
+//    the slide has left the screen entirely, so it replays on return.
 //  - Marks the slide crossing the middle of the viewport as .is-active, which
-//    plays its .reveal transitions (CSS) and updates the nav's theme and
-//    current link. Slides snap into place via CSS scroll-snap, and wheel/keys
-//    page one slide at a time with an eased transition.
-//  - Per-slide extras on activation: videos play (others pause) and
-//    [data-count] numbers count up.
+//    sets the nav's theme and current link. Scrolling itself is the browser's own.
 //  - The two results charts, built from the data below.
 //  - Raw/masks/tracks switch on the Dataset slide.
 //  - Copy-to-clipboard for the BibTeX.
@@ -33,17 +33,34 @@
     navLinks.forEach(function (a) {
       a.setAttribute('aria-current', a.getAttribute('href') === '#' + id ? 'true' : 'false');
     });
-    updateWalls(slide);
+  }
+
+  function show(slide) {
+    if (slide.classList.contains('is-shown')) return;
+    slide.classList.add('is-shown');
+    var wall = slide.querySelector('.clip-wall');
+    if (wall) showWall(wall);
     playVideos(slide);
     countUp(slide);
   }
 
-  // ---------- Videos: only the active slide's clips play ----------
+  function hide(slide) {
+    if (!slide.classList.contains('is-shown')) return;
+    slide.classList.remove('is-shown');
+    var wall = slide.querySelector('.clip-wall');
+    if (wall) hideWall(wall);
+    slide.querySelectorAll('video').forEach(function (v) { v.pause(); });
+  }
+
+  function shownSlides() {
+    return slides.filter(function (s) { return s.classList.contains('is-shown'); });
+  }
+
+  // ---------- Videos: only the shown slides' clips play ----------
   var reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
   function playVideos(slide) {
-    document.querySelectorAll('video').forEach(function (v) {
-      if (!slide.contains(v)) { v.pause(); return; }
+    slide.querySelectorAll('video').forEach(function (v) {
       // decorative background loops stay still for reduced motion
       if (reduceMotion.matches && v.classList.contains('bg')) return;
       // wall clips keep their own place in the loop; the rest start over
@@ -60,7 +77,7 @@
   // SAM3-mask versions, the links wall the raw ones) tiled across the
   // slide in a random order, each started at a random point in its loop. Browsers cap how many video players a page may
   // hold (~75 desktop, fewer on phones), so a wall only exists while its slide
-  // is active, with about 30 tiles at most.
+  // is shown, with about 30 tiles at most.
   var WALL_CLIPS = [
     '00006', '00019', '00020', '00039', '00053', '00527', '00528', '00585', '00663', '00843', '00844',
     '00852', '02308', '02362', '02363', '02471', '02474', '04371', '07414', '08877', '08984'
@@ -98,14 +115,14 @@
     }
     // All tiles go in at once so the grid never reflows, but their players
     // start a few per frame: creating ~30 decoders (and their first seeks) in
-    // one frame stalls the slide transition that is running at the same time.
+    // one frame stalls the scrolling and reveal transitions running meanwhile.
     tiles.forEach(function (v) { wall.appendChild(v); });
     var run = wall.buildRun = (wall.buildRun || 0) + 1;
     (function startSome() {
       if (wall.buildRun !== run) return;
       tiles.splice(0, TILES_PER_FRAME).forEach(function (v) {
         v.src = v.wallSrc;
-        if (wall.closest('.slide') === activeSlide && !reduceMotion.matches && !document.hidden) {
+        if (wall.closest('.slide').classList.contains('is-shown') && !reduceMotion.matches && !document.hidden) {
           var p = v.play();
           if (p && p.catch) p.catch(function () {});
         }
@@ -138,59 +155,65 @@
 
   // Leaving a wall's slide hides and pauses it at once (as removing it did),
   // but releasing ~30 players is itself slow, so that waits until the slide
-  // transition has finished.
-  var WALL_CLEAR_DELAY = 1200;   // ms, longer than goTo's longest transition
+  // has scrolled away.
+  var WALL_CLEAR_DELAY = 1200;   // ms
 
-  function updateWalls(slide) {
-    document.querySelectorAll('.clip-wall').forEach(function (wall) {
-      if (slide.contains(wall)) {
-        if (wall.clearTimer) clearWall(wall);   // rebuilt fresh, as before
-        if (!wall.firstChild) buildWall(wall);
-      } else if (wall.firstChild && !wall.clearTimer) {
-        wall.style.visibility = 'hidden';
-        wall.querySelectorAll('video').forEach(function (v) { v.pause(); });
-        wall.clearTimer = setTimeout(function () {
-          wall.clearTimer = null;
-          clearWall(wall);
-        }, WALL_CLEAR_DELAY);
-      }
-    });
+  function showWall(wall) {
+    if (wall.clearTimer) clearWall(wall);   // rebuilt fresh, as before
+    if (!wall.firstChild) buildWall(wall);
+  }
+
+  function hideWall(wall) {
+    if (!wall.firstChild || wall.clearTimer) return;
+    wall.style.visibility = 'hidden';
+    wall.querySelectorAll('video').forEach(function (v) { v.pause(); });
+    wall.clearTimer = setTimeout(function () {
+      wall.clearTimer = null;
+      clearWall(wall);
+    }, WALL_CLEAR_DELAY);
   }
 
   var wallTimer;
   window.addEventListener('resize', function () {
     clearTimeout(wallTimer);
     wallTimer = setTimeout(function () {
-      var wall = activeSlide && activeSlide.querySelector('.clip-wall');
-      if (wall) { buildWall(wall); playVideos(activeSlide); }
+      shownSlides().forEach(function (slide) {
+        var wall = slide.querySelector('.clip-wall');
+        if (wall) { buildWall(wall); playVideos(slide); }
+      });
     }, 200);
   });
 
   // Clips in a [data-sync] row show the same moment through different stages,
   // so the others follow the first one whenever they drift apart.
   setInterval(function () {
-    if (!activeSlide || document.hidden) return;
-    activeSlide.querySelectorAll('[data-sync]').forEach(function (row) {
-      var vids = row.querySelectorAll('video');
-      var master = vids[0];
-      if (!master || master.paused) return;
-      for (var i = 1; i < vids.length; i++) {
-        if (!vids[i].seeking && Math.abs(vids[i].currentTime - master.currentTime) > 0.08) {
-          vids[i].currentTime = master.currentTime;
-        }
-      }
+    if (document.hidden) return;
+    shownSlides().forEach(function (slide) {
+      slide.querySelectorAll('[data-sync]').forEach(syncRow);
     });
   }, 250);
 
-  // Nothing plays in a background tab; coming back resumes the active slide's
+  function syncRow(row) {
+    var vids = row.querySelectorAll('video');
+    var master = vids[0];
+    if (!master || master.paused) return;
+    for (var i = 1; i < vids.length; i++) {
+      if (!vids[i].seeking && Math.abs(vids[i].currentTime - master.currentTime) > 0.08) {
+        vids[i].currentTime = master.currentTime;
+      }
+    }
+  }
+
+  // Nothing plays in a background tab; coming back resumes the shown slides'
   // clips where they were.
   document.addEventListener('visibilitychange', function () {
-    if (!activeSlide) return;
-    activeSlide.querySelectorAll('video').forEach(function (v) {
-      if (document.hidden) { v.pause(); return; }
-      if (!v.getAttribute('src') || (reduceMotion.matches && v.classList.contains('bg'))) return;
-      var p = v.play();
-      if (p && p.catch) p.catch(function () {});
+    shownSlides().forEach(function (slide) {
+      slide.querySelectorAll('video').forEach(function (v) {
+        if (document.hidden) { v.pause(); return; }
+        if (!v.getAttribute('src') || (reduceMotion.matches && v.classList.contains('bg'))) return;
+        var p = v.play();
+        if (p && p.catch) p.catch(function () {});
+      });
     });
   });
 
@@ -217,140 +240,31 @@
   }
 
   if ('IntersectionObserver' in window) {
-    // A thin band across the middle of the screen decides the active slide,
-    // which also works for slides taller than the viewport on small screens.
+    // A thin band across the middle of the screen decides the active slide
+    // (nav state), which also works for slides taller than the viewport on
+    // small screens.
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
         if (entry.isIntersecting) activate(entry.target);
       });
     }, { rootMargin: '-45% 0px -45% 0px' });
-    slides.forEach(function (s) { io.observe(s); });
+    // A slide is shown once its top is 15% of the way up the screen, and
+    // stays shown until it is completely off screen, so nothing resets or
+    // replays while any of it is still visible.
+    var showIO = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) show(entry.target);
+      });
+    }, { rootMargin: '0px 0px -15% 0px' });
+    var hideIO = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) hide(entry.target);
+      });
+    });
+    slides.forEach(function (s) { io.observe(s); showIO.observe(s); hideIO.observe(s); });
   } else {
-    slides.forEach(function (s) { s.classList.add('is-active'); });
+    slides.forEach(function (s) { s.classList.add('is-active', 'is-shown'); });
   }
-
-  // ---------- Paging: one wheel gesture / key press = one slide ----------
-  // Native scroll-snap snaps back on small trackpad swipes and lets inertia
-  // drift past a slide, so on large screens with a mouse/trackpad the root
-  // stops scrolling natively (.is-paged sets overflow: hidden) and wheel,
-  // keys and in-page links ease from slide to slide here. Touch devices keep
-  // native CSS snapping.
-  var paged = window.matchMedia(
-    '(min-width: 901px) and (min-height: 601px) and (hover: hover) and (pointer: fine)'
-  );
-  var root = document.documentElement;
-  var animating = false;
-
-  function updatePaged() {
-    root.classList.toggle('is-paged', paged.matches);
-  }
-  updatePaged();
-  if (paged.addEventListener) paged.addEventListener('change', updatePaged);
-
-  function currentIndex() {
-    var y = window.scrollY, best = 0;
-    slides.forEach(function (s, i) {
-      if (Math.abs(s.offsetTop - y) < Math.abs(slides[best].offsetTop - y)) best = i;
-    });
-    return best;
-  }
-
-  // easeInOutCubic, close to Apple's page-transition feel
-  function ease(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
-
-  function goTo(index) {
-    index = Math.max(0, Math.min(slides.length - 1, index));
-    var from = window.scrollY;
-    var to = slides[index].offsetTop;
-    if (from === to) return;
-    if (reduceMotion.matches) { window.scrollTo(0, to); return; }
-
-    animating = true;
-    var duration = Math.min(1000, 600 + Math.abs(index - currentIndex()) * 80);
-    var start = performance.now();
-    requestAnimationFrame(function step(now) {
-      var t = Math.min(1, (now - start) / duration);
-      window.scrollTo(0, from + (to - from) * ease(t));
-      if (t < 1) return requestAnimationFrame(step);
-      animating = false;
-    });
-  }
-
-  // Keep the current slide aligned when the window is resized.
-  var resizeTimer;
-  window.addEventListener('resize', function () {
-    if (!paged.matches) return;
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function () {
-      window.scrollTo(0, slides[currentIndex()].offsetTop);
-    }, 100);
-  });
-
-  // A trackpad swipe arrives as a stream of wheel events followed by a long
-  // inertia tail whose deltas only shrink. One swipe should move one slide, so
-  // after a move the rest of that stream is ignored, until either the wheel
-  // goes quiet briefly or the deltas speed up again (a fresh swipe made while
-  // the old inertia is still trickling in).
-  var WHEEL_THRESHOLD = 12;   // px of scroll needed to trigger a move
-  var gestureUsed = false, lastWheel = 0, accumulated = 0, recent = [];
-
-  function mean(a) {
-    return a.reduce(function (s, x) { return s + x; }, 0) / a.length;
-  }
-
-  window.addEventListener('wheel', function (e) {
-    if (!paged.matches || e.ctrlKey) return;               // ctrl = pinch zoom
-    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;    // sideways: table/code scroll
-    e.preventDefault();
-    var delta = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
-    var now = performance.now();
-    if (now - lastWheel > 120) { gestureUsed = false; accumulated = 0; recent = []; }
-    lastWheel = now;
-
-    recent.push(Math.abs(delta));
-    if (recent.length > 8) recent.shift();
-    // Inertia decays; a clear, sustained jump in speed means a new swipe has
-    // started (the newest delta must also top everything before it, so noisy
-    // inertia from some touchpads doesn't count).
-    var older = recent.slice(0, 4);
-    if (gestureUsed && !animating && recent.length === 8 &&
-        mean(recent.slice(4)) > mean(older) * 1.5 &&
-        recent[7] > Math.max.apply(null, older)) {
-      gestureUsed = false;
-      accumulated = 0;
-    }
-
-    if (animating || gestureUsed) return;
-    accumulated += delta;
-    if (Math.abs(accumulated) < WHEEL_THRESHOLD) return;
-    gestureUsed = true;
-    goTo(currentIndex() + (accumulated > 0 ? 1 : -1));
-  }, { passive: false });
-
-  window.addEventListener('keydown', function (e) {
-    if (!paged.matches || e.altKey || e.ctrlKey || e.metaKey) return;
-    if (e.target.closest('button, a, input, textarea, select, pre')) {
-      if (e.key === ' ' || e.key === 'Spacebar') return;
-    }
-    var step = { ArrowDown: 1, PageDown: 1, ArrowUp: -1, PageUp: -1 }[e.key];
-    if (e.key === ' ') step = e.shiftKey ? -1 : 1;
-    if (e.key === 'Home') { e.preventDefault(); return goTo(0); }
-    if (e.key === 'End') { e.preventDefault(); return goTo(slides.length - 1); }
-    if (!step) return;
-    e.preventDefault();
-    if (!animating) goTo(currentIndex() + step);
-  });
-
-  // In-page links (nav, "back to top") use the same eased transition.
-  document.addEventListener('click', function (e) {
-    var a = e.target.closest('a[href^="#"]');
-    if (!a || !paged.matches) return;
-    var target = document.querySelector(a.getAttribute('href'));
-    var index = slides.indexOf(target);
-    if (index < 0) return;
-    e.preventDefault();
-    goTo(index);
-  });
 
   // ---------- Charts ----------
   var NS = 'http://www.w3.org/2000/svg';

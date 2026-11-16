@@ -1,5 +1,5 @@
-/* Apple-style full-screen slides. Each <section class="slide"> is one screen and
-   one scroll-snap point; its content is a 40/60 split of text and media. */
+/* Apple-style full-screen slides. Each <section class="slide"> is one screen;
+   its content is a 40/60 split of text and media. */
 
 :root {
   --white: #fff;
@@ -34,17 +34,8 @@
 }
 
 html {
-  scroll-snap-type: y mandatory;
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
-}
-
-/* Desktop with mouse/trackpad: page.js drives every slide change itself
-   (wheel, keys, links), so native scrolling and snapping are turned off. */
-html.is-paged {
-  overflow: hidden;
-  scroll-snap-type: none;
-  scroll-behavior: auto;
 }
 
 body {
@@ -152,8 +143,6 @@ a:hover {
   position: relative;
   height: 100vh;
   height: 100svh;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
   display: flex;
   align-items: center;
   overflow: hidden;
@@ -427,7 +416,7 @@ h2 {
   transition: opacity 0.4s;
 }
 
-.slide.is-active .clip-wall {
+.slide.is-shown .clip-wall {
   opacity: 0.28;
   transition: opacity 1.4s var(--ease) 0.2s;
 }
@@ -454,13 +443,14 @@ h2 {
   max-width: 1150px;
 }
 
-/* the title sits in the middle of the page, over an even (not graded) shade */
+/* the title sits in the middle of the page, over a shade that is darkest
+   behind it and fades out toward the edges */
 #top {
   align-items: center;
 }
 
 #top .shade {
-  background: rgba(0, 0, 0, 0.2);
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.7) 50%, rgba(0, 0, 0, 0.4) 80%, rgba(0, 0, 0, 0.15) 100%);
 }
 
 #top .copy {
@@ -486,8 +476,16 @@ h2 {
 }
 
 #top .authors a {
-  color: var(--link-dark);
-  font-weight: 600;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(255, 255, 255, 0.35);
+  text-underline-offset: 0.22em;
+  transition: text-decoration-color 0.2s ease;
+}
+
+#top .authors a:hover {
+  text-decoration-color: currentColor;
 }
 
 #links .shade {
@@ -685,7 +683,7 @@ h2 {
   display: inline-flex;
   padding: 4px;
   border-radius: 980px;
-  background: #1d1d1f;
+  background: #e8e8ed;
 }
 
 .segmented button {
@@ -694,7 +692,7 @@ h2 {
   border: 0;
   border-radius: 980px;
   background: transparent;
-  color: #a1a1a6;
+  color: var(--text-secondary);
   font: inherit;
   font-size: 17px;
   cursor: pointer;
@@ -702,8 +700,9 @@ h2 {
 }
 
 .segmented button[aria-pressed="true"] {
-  background: #424245;
-  color: #f5f5f7;
+  background: var(--white);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
 }
 
 .behavior-grid {
@@ -714,7 +713,7 @@ h2 {
 
 .tile video {
   border-radius: 14px;
-  background: #1d1d1f;
+  background: var(--gray);
   transition: opacity 0.25s var(--ease);
 }
 
@@ -727,12 +726,12 @@ h2 {
   align-items: center;
   gap: 9px;
   margin: 10px 2px 0;
-  color: #86868b;
+  color: var(--text-secondary);
   font-size: 15px;
 }
 
 .tile b {
-  color: #f5f5f7;
+  color: var(--text);
   font-size: 18px;
   font-weight: 600;
 }
@@ -902,7 +901,7 @@ pre {
   word-break: break-word;
 }
 
-/* ---------- Slide-in transitions (driven by .is-active from page.js) ---------- */
+/* ---------- Slide-in transitions (driven by .is-shown from page.js) ---------- */
 
 .js .reveal {
   opacity: 0;
@@ -916,14 +915,14 @@ pre {
 
 /* --i staggers the text column (set by page.js); --d (seconds) times
    elements inside a figure, as in the teaser */
-.js .slide.is-active .reveal {
+.js .slide.is-shown .reveal {
   opacity: 1;
   transform: none;
   transition-duration: 1s;
   transition-delay: calc(var(--i, 0) * 90ms + 120ms + var(--d, 0s));
 }
 
-.js .slide.is-active .media.reveal {
+.js .slide.is-shown .media.reveal {
   transition-duration: 1.3s;
   transition-delay: 80ms;
 }
@@ -957,29 +956,25 @@ pre {
   transform-origin: left;
 }
 
-.js .slide.is-active .pop {
+.js .slide.is-shown .pop {
   opacity: 1;
   transition: opacity 0.45s ease var(--d, 0s);
 }
 
-.js .slide.is-active .draw {
+.js .slide.is-shown .draw {
   stroke-dashoffset: 0;
   transition: stroke-dashoffset var(--dur, 1.4s) cubic-bezier(0.4, 0, 0.2, 1) var(--d, 0s);
 }
 
-.js .slide.is-active .grow,
-.js .slide.is-active .growx {
+.js .slide.is-shown .grow,
+.js .slide.is-shown .growx {
   transform: none;
   transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0s);
 }
 
-/* ---------- Narrow or short screens: stack and stop snapping ---------- */
+/* ---------- Narrow or short screens: slides grow to fit their content ---------- */
 
 @media (max-width: 900px), (max-height: 600px) {
-  html {
-    scroll-snap-type: none;
-  }
-
   .slide {
     height: auto;
     min-height: 100svh;

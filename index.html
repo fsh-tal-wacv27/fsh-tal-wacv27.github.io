@@ -49,8 +49,8 @@
       <li><a href="#dataset">Dataset</a></li>
       <li><a href="#tracking">Method</a></li>
       <li><a href="#results">Results</a></li>
-      <li><a href="#links">Links</a></li>
       <li><a href="#cite">Cite</a></li>
+      <li><a href="#links">Links</a></li>
     </ul>
     <div class="globalnav-actions">
       <a class="button button-small" target="_blank"
@@ -116,9 +116,9 @@
       <p class="eyebrow reveal">Research Problem</p>
       <h2 class="reveal">Behavioral experiments are limited by how fast experts can watch video.</h2>
       <ul class="points">
-        <li class="reveal"><strong>Experts annotate at real-time playback,</strong> hour by hour, in BORIS.</li>
-        <li class="reveal"><strong>Four observers for the dataset,</strong> reconciled by inter-rater reliability.</li>
-        <li class="reveal"><strong>Each label is a single time point.</strong> No start or end timestamps.</li>
+        <li class="reveal"><strong>Experts watch every hour of video in real time</strong> and annotate it in BORIS.</li>
+        <li class="reveal"><strong>Four people annotated this dataset,</strong> and their labels were reconciled using inter-rater reliability.</li>
+        <li class="reveal"><strong>Each label marks a single moment,</strong> not when the behavior starts and ends.</li>
       </ul>
       <dl class="stats reveal">
         <div><dt data-count="17">17</dt><dd>hour-long recordings</dd></div>
@@ -181,13 +181,13 @@
   </div>
 </section>
 
-<section class="slide theme-dark" id="dataset" aria-label="The dataset">
+<section class="slide theme-light" id="dataset" aria-label="The dataset">
   <div class="slide-inner">
     <div class="copy">
       <p class="eyebrow reveal">Dataset</p>
-      <h2 class="reveal">Six short, visually similar, often overlapping behaviors.</h2>
-      <p class="body-text reveal">17 hour-long recordings of <em>Astatotilapia burtoni</em> pairs,
-        side view, 25&nbsp;fps.</p>
+      <h2 class="reveal">Six behaviors that are brief, look alike, and often overlap.</h2>
+      <p class="body-text reveal">Pairs of <em>Astatotilapia burtoni</em> were filmed from the side
+        at 25&nbsp;fps, in 17 hour-long recordings.</p>
       <div class="segmented reveal" role="group" aria-label="View">
         <button type="button" data-view="raw" aria-pressed="false">Raw</button>
         <button type="button" data-view="masks" aria-pressed="true">SAM3 masks</button>
@@ -205,11 +205,11 @@
   </div>
 </section>
 
-<section class="slide theme-gray" id="tracking" aria-label="Tracking: object-grounded trajectories">
+<section class="slide theme-light" id="tracking" aria-label="Tracking: object-grounded trajectories">
   <div class="slide-inner">
     <div class="copy">
       <p class="eyebrow reveal">Tracking</span></p>
-      <h2 class="reveal">Segmentation based keypoint tracking.</h2>
+      <h2 class="reveal">Each fish is tracked by following points across its segmentation mask.</h2>
       <p class="body-text reveal">SAM3 segments both fish in every frame, and points are tracked
         across the masks to give each fish a trajectory.</p>
       <p class="callout reveal"><strong>No skeleton or keypoint labels provided.</strong></p>
@@ -236,14 +236,14 @@
   <div class="slide-inner">
     <div class="copy">
       <p class="eyebrow reveal">Model</span></p>
-      <h2 class="reveal">A few-shot classifier feeds a point-supervised localizer.</h2>
+      <h2 class="reveal">A few-shot classifier feeds into a localizer trained on point labels.</h2>
       <dl class="cards">
         <div class="reveal"><dt>Few-shot MIL classifier</dt>
-          <dd>Trajectory-aligned tokens at the tracked points fused with motion features, trained
-            in few-shot episodes.</dd></div>
+          <dd>Builds tokens at the tracked points along each trajectory, combines them with motion
+            features, and learns from few-shot episodes.</dd></div>
         <div class="reveal"><dt>Point-supervised localizer</dt>
-          <dd>Behavior, timespan, and centerness heads, trained on &plusmn;2&nbsp;s pseudo-segments
-            around each point annotation.</dd></div>
+          <dd>Predicts the behavior, its timespan, and its centerness. It trains on pseudo-segments
+            that reach 2&nbsp;s either side of each point annotation.</dd></div>
       </dl>
     </div>
     <figure class="media media-plain reveal">
@@ -253,16 +253,16 @@
   </div>
 </section>
 
-<section class="slide theme-gray" id="results" aria-label="Results">
+<section class="slide theme-light" id="results" aria-label="Results">
   <div class="slide-inner">
     <div class="copy">
       <p class="eyebrow reveal">Results</p>
-      <h2 class="reveal">State of the art at every IoU threshold over varied supervision.</h2>
+      <h2 class="reveal">FSH-TAL beats weakly, point- and fully supervised baselines at every IoU threshold.</h2>
       <p class="stat-label reveal">Average mAP, IoU 0.1&ndash;0.7</p>
       <p class="headline-number reveal"><span data-count="41.0" data-decimals="1">41.0</span><small>%</small></p>
-      <p class="body-text reveal"><strong>+17.4 points</strong> over ActionFormer, fully supervised
-        on the same pseudo-segments.</p>
-      <p class="fineprint reveal">5-fold cross-validation over all 17 held-out recordings.</p>
+      <p class="body-text reveal"><strong>+17.4 points</strong> over ActionFormer, which was trained with
+        full supervision on the same pseudo-segments.</p>
+      <p class="fineprint reveal">Measured with 5-fold cross-validation across all 17 recordings.</p>
     </div>
     <figure class="media chart reveal">
       <svg id="map-chart" viewBox="0 0 720 400" role="img"
@@ -283,9 +283,9 @@
   <div class="slide-inner">
     <div class="copy">
       <p class="eyebrow reveal">Per-Behavior Results</p>
-      <h2 class="reveal">Well-defined behaviors localize best, even when they are rare.</h2>
-      <p class="body-text reveal">Precisely defined behaviors beat loosely defined ones:
-        <strong>Tilt</strong> and <strong>Peck</strong> are rare, yet among the best localized.</p>
+      <h2 class="reveal">Clearly defined behaviors are the easiest to localize, even rare ones.</h2>
+      <p class="body-text reveal"><strong>Tilt</strong> and <strong>Peck</strong> don't happen often,
+        but they're precisely defined, so they're among the best localized.</p>
       <p class="body-text reveal">FSH-TAL beats every baseline on all six behaviors.</p>
       <p class="fineprint reveal">IoU 0.1&ndash;0.7, over the recordings that contain each behavior.</p>
     </div>
@@ -296,33 +296,13 @@
   </div>
 </section>
 
-<section class="slide slide-video theme-dark" id="links" aria-label="Paper, code, and data">
-  <div class="clip-wall" aria-hidden="true"></div>
-  <div class="shade"></div>
-  <div class="slide-inner">
-    <div class="copy">
-      <p class="brand reveal"><b>FSH</b>-TAL</p>
-      <p class="lede reveal">8,202 expert point annotations over 17 hours of cichlid footage, and a
-        localizer that turns them into temporal behavior segments.</p>
-      <ul class="link-list">
-        <li class="reveal"><a target="_blank" rel="noopener" href="https://bds062.github.io/projects/cichlid-social-behavior/assets/Fish_Behavior_extended_version.pdf"><span>Paper</span>WACV 2027 (PDF)</a></li>
-        <li class="reveal"><a target="_blank" rel="noopener" href="https://bds062.github.io/projects/cichlid-social-behavior/"><span>Project</span>bds062.github.io/projects/cichlid-social-behavior</a></li>
-        <li class="reveal"><a target="_blank" rel="noopener" href="https://github.com/bds062/FSH-TAL"><span>Code</span>github.com/bds062/FSH-TAL</a></li>
-        <li class="reveal"><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/bds062/cichlid-behavior-pairs"><span>Dataset</span>huggingface.co/datasets/bds062/cichlid-behavior-pairs</a></li>
-        <li class="reveal"><a target="_blank" rel="noopener" href="https://huggingface.co/bds062/fsh-tal"><span>Models</span>huggingface.co/bds062/fsh-tal</a></li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<section class="slide theme-gray" id="cite" aria-label="Citation">
+<section class="slide theme-light" id="cite" aria-label="Citation">
   <div class="slide-inner">
     <div class="copy">
       <p class="eyebrow reveal">Cite</p>
       <h2 class="reveal">BibTeX</h2>
       <p class="body-text reveal">If you find this work useful, please cite it.</p>
-      <p class="note reveal">This citation is for the ECCV 2026 CV4Ecology workshop version.
-        The WACV 2027 citation is coming soon.</p>
+      <p class="note reveal">Accepted at WACV 2027 and the CV4Ecology Workshop, ECCV 2026.</p>
       <div class="actions reveal">
         <button type="button" class="button" id="copy-bibtex">Copy BibTeX</button>
       </div>
@@ -333,10 +313,28 @@
   title = {Automated Temporal Localization of Behavior in Cichlid Fish with Few-Shot Trajectory Tokens},
   author = {Srinivasan, Bhargav and Lamousin, William and Liu, Jason and Phan, Charles and Osunbor, Ofure and Sharma, Shubh and McGeehan, Cade and Haroon, Tahir and Jayasuriya, Vijay and Parker, Coltan and Juntti, Scott and Kumar, Pulkit and Shrivastava, Abhinav},
   booktitle = {Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision (WACV)},
-  year = {2027},
-  note = {To appear}
+  year = {2027}
 }</code></pre>
     </figure>
+  </div>
+</section>
+
+<section class="slide slide-video theme-dark" id="links" aria-label="Paper, code, and data">
+  <div class="clip-wall" aria-hidden="true"></div>
+  <div class="shade"></div>
+  <div class="slide-inner">
+    <div class="copy">
+      <p class="brand reveal"><b>FSH</b>-TAL</p>
+      <p class="lede reveal">We're releasing 8,202 expert point annotations over 17 hours of cichlid
+        video, and a localizer that turns point labels into behavior segments.</p>
+      <ul class="link-list">
+        <li class="reveal"><a target="_blank" rel="noopener" href="https://bds062.github.io/projects/cichlid-social-behavior/assets/Fish_Behavior_extended_version.pdf"><span>Paper</span>WACV 2027 (PDF)</a></li>
+        <li class="reveal"><a target="_blank" rel="noopener" href="https://bds062.github.io/projects/cichlid-social-behavior/"><span>Project</span>bds062.github.io/projects/cichlid-social-behavior</a></li>
+        <li class="reveal"><a target="_blank" rel="noopener" href="https://github.com/bds062/FSH-TAL"><span>Code</span>github.com/bds062/FSH-TAL</a></li>
+        <li class="reveal"><a target="_blank" rel="noopener" href="https://huggingface.co/datasets/bds062/cichlid-behavior-pairs"><span>Dataset</span>huggingface.co/datasets/bds062/cichlid-behavior-pairs</a></li>
+        <li class="reveal"><a target="_blank" rel="noopener" href="https://huggingface.co/bds062/fsh-tal"><span>Models</span>huggingface.co/bds062/fsh-tal</a></li>
+      </ul>
+    </div>
   </div>
 </section>
 
